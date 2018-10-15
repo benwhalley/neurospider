@@ -1,0 +1,122 @@
+---
+title: "Buzzword bingo from findaphd.com adverts"
+output: rmdformats::html_clean
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(jsonlite)
+library(xml2)
+library(topicmodels)
+library(tidytext)
+library(wordcloud)
+```
+
+
+Phd adverts scraped from findaphd.com 15 October 2018.
+
+
+```{r}
+df <- read_json('data.json', simplifyDataFrame=T) %>% 
+  as.tibble() %>% 
+  mutate(text = read_html(description) %>% xml_text() )
+
+df %>%   
+  write_csv('phds.csv')
+```
+
+
+# Adverts
+
+We have about 180 job adverts scanned
+```{r}
+df %>% 
+  distinct(url) %>% 
+  skimr::skim()
+```
+
+
+PhDs advertised matched one of the following searches on findaphd.com:
+
+- fmri
+- transcranial
+- eeg
+- magnetic+resonance
+- brain+imaging
+- human+neuroscience
+
+
+
+Some example titles:
+
+```{r, results='asis'}
+set.seed(12345)
+df %>% 
+  distinct(title) %>% 
+  sample_n(20) %>% 
+  pull(title) %>% 
+  pander::pandoc.list()
+```
+
+
+
+
+# Simple bag of word counts
+
+```{r, message=F, warning=F}
+word_counts <- df %>% unnest_tokens(word, text) %>% 
+  anti_join(., tidytext::stop_words) %>% 
+  count(word, sort=T) %>% 
+  head(300)
+
+df %>% unnest_tokens(word, text) %>% 
+  write_csv(word_counts, 'bagofwords.csv')
+
+wordcloud(word_counts$word, word_counts$n,
+          scale=c(3, .2))
+```
+
+
+
+# Using within-doc importance
+
+```{r, message=F, warning=F}
+word_counts <- df %>% unnest_tokens(word, title) %>% 
+  count(word, url, sort=T) %>% 
+  bind_tf_idf(word, url, n) %>% 
+  arrange(desc(tf_idf)) %>% 
+  anti_join(., tidytext::stop_words) %>% 
+  count(word, sort=T) %>% 
+  head(300)
+
+wordcloud(word_counts$word, word_counts$nn, 
+          scale=c(3,.2))
+```
+
+
+
+
+
+
+# Ngrams...  buzzword bingo
+
+```{r, message=F, warning=F}
+ngramcounts <- df %>% 
+  tidytext::unnest_tokens(ngram, title, token="ngrams", n=2) %>% 
+  # separate(ngram, c('w1', 'w2'), sep=" ", remove=F) %>% 
+  # anti_join(., stop_words, by=c('w1'='word')) %>% 
+  # anti_join(., stop_words, by=c('w2'='word')) %>%
+  group_by(ngram) %>% 
+  summarise(n=n()) %>% 
+  arrange(-n) %>% 
+  # kill some extra stop words
+  filter(!str_detect(ngram, "project|studentship|dtp|eastbio|opportunities"))
+
+wordcloud(ngramcounts$ngram, ngramcounts$n,
+          scale=c(3,.2))
+
+```
+
+
+

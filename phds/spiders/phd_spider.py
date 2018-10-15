@@ -12,7 +12,7 @@ class PhdSpider(scrapy.Spider):
     def parse_phd(self, response):
 
         page = response.url.split("?")[-1]
-        filename = "__phd-%s.html" % page
+        filename = "source/phd-%s.html" % page
 
         with open(filename, "wb") as f:
             f.write(response.body)
@@ -36,6 +36,6 @@ class PhdSpider(scrapy.Spider):
         # for href in response.css(".pagi1ngArea a::attr(href)").extract():
         #     yield response.follow(href, callback=self.parse)
 
-        filename = "__phd-list-%s.html" % page
+        filename = "source/phd-list-%s.html" % page
         with open(filename, "wb") as f:
             f.write(response.body)
